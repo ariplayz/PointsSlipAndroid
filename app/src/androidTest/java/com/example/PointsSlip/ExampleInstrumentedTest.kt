@@ -1,4 +1,4 @@
-package com.example.pointsslip
+package com.example.PointsSlip
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

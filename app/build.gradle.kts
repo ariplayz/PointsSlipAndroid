@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.pointsslip"
+    namespace = "com.DelphiGamerz.PointsSlip"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.pointsslip"
+        applicationId = "com.DelphiGamerz.PointsSlip"
         minSdk = 30
         targetSdk = 36
         versionCode = 1
@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation("androidx.datastore:datastore-preferences:1.1.1") // Or latest
     implementation("androidx.compose.material:material-icons-core:1.6.8") // Or latest
     implementation("androidx.compose.material:material-icons-extended:1.6.8") // << THIS IS CRUCIAL FOR Brightness4/7
     testImplementation(libs.junit)

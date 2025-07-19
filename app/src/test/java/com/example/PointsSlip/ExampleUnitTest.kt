@@ -1,4 +1,4 @@
-package com.example.pointsslip
+package com.example.PointsSlip
 
 import org.junit.Test
 
