@@ -1,34 +1,63 @@
-// MainActivity.kt
-package com.DelphiGamerz.PointsSlip // Updated package name
+package com.DelphiGamerz.PointsSlip
 
+import android.os.Build // Still potentially useful for other SDK checks
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.Brightness7
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+// Removed RenderEffect, Shader, asComposeRenderEffect, graphicsLayer imports as they are no longer used for blur
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-// Assuming your theme is also under this new package structure
 import com.DelphiGamerz.PointsSlip.ui.theme.PointsSlipTheme
-// SettingsDataStore is now in the same package, direct import might not be needed
-// or would be 'import com.DelphiGamerz.PointsSlip.SettingsDataStore' if in a sub-package.
-// Since it's top-level in the same package, it should be directly accessible.
+
+// Modifier Extension for Glassmorphism (No Blur Version) - THIS IS THE ONE WE KEEP
+@Composable
+fun Modifier.glassmorphism(
+    cornerRadius: Dp,
+    glassColor: Color,
+    borderColor: Color,
+    borderWidth: Dp = 1.dp,
+    shadowElevation: Dp
+): Modifier {
+    val shape = RoundedCornerShape(cornerRadius)
+    return this
+        .shadow(elevation = shadowElevation, shape = shape)
+        .clip(shape)
+        .background(glassColor)
+        .border(
+            width = borderWidth,
+            color = borderColor,
+            shape = shape
+        )
+}
+
 
 // Data Class
 data class NumericListItemData(
@@ -37,33 +66,72 @@ data class NumericListItemData(
     val pointsPerUnit: Int
 )
 
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            // Default to dark theme for the dark green theme
             var isDarkTheme by remember { mutableStateOf(true) }
 
-            PointsSlipTheme(darkTheme = isDarkTheme) {
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    topBar = {
-                        PointsSlipTopBar(
-                            isDarkTheme = isDarkTheme,
-                            onThemeToggle = { isDarkTheme = !isDarkTheme }
+            PointsSlipTheme(
+                darkTheme = isDarkTheme,
+                dynamicColor = false // Crucial for forcing your green theme
+            ) {
+                // This gradientBrush provides the primary background.
+                // Let's ensure its colors are opaque and visible for the dark theme.
+                val gradientBrush = if (isDarkTheme) {
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f), // Dark Green Surface
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f), // Dark Green SurfaceVariant
+                            MaterialTheme.colorScheme.background.copy(alpha = 0.9f)  // Dark Green Background
+                        )
+                    )
+                } else { // Light theme gradient
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                            MaterialTheme.colorScheme.background.copy(alpha = 0.9f)
+                        )
+                    )
+                }
+
+                // Root Box - THIS IS WHAT DRAWS THE MAIN BACKGROUND
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(gradientBrush) // If this brush is transparent, screen will be white
+                ) {
+                    Scaffold(
+                        modifier = Modifier.fillMaxSize(),
+                        containerColor = Color.Transparent, // Correct, so Box provides background
+                        topBar = {
+                            PointsSlipTopBar(
+                                isDarkTheme = isDarkTheme,
+                                onThemeToggle = { isDarkTheme = !isDarkTheme },
+                                modifier = Modifier.glassmorphism(
+                                    cornerRadius = 0.dp,
+                                    // These glass colors should be semi-transparent versions of your theme colors
+                                    glassColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f),
+                                    borderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                                    shadowElevation = 6.dp
+                                )
+                            )
+                        }
+                    ) { innerPadding ->
+                        val context = LocalContext.current
+                        val settingsDataStore = remember { SettingsDataStore(context) }
+
+                        NumericPointsScreen(
+                            modifier = Modifier
+                                .padding(innerPadding)
+                                .fillMaxSize(),
+                            settingsDataStore = settingsDataStore
                         )
                     }
-                ) { innerPadding ->
-                    val context = LocalContext.current
-                    // Ensure SettingsDataStore is correctly referenced
-                    val settingsDataStore = remember { SettingsDataStore(context) }
-
-                    NumericPointsScreen(
-                        modifier = Modifier
-                            .padding(innerPadding)
-                            .fillMaxSize(),
-                        settingsDataStore = settingsDataStore
-                    )
                 }
             }
         }
@@ -88,8 +156,9 @@ fun PointsSlipTopBar(
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            containerColor = Color.Transparent,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            actionIconContentColor = MaterialTheme.colorScheme.onSurface
         ),
         modifier = modifier
     )
@@ -101,42 +170,52 @@ fun NumericUpDownDisplay(
     currentCount: Int,
     onCountChange: (Int) -> Unit
 ) {
-    Card(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp, horizontal = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .padding(vertical = 6.dp, horizontal = 12.dp)
+            .glassmorphism( // Calls the version in this file
+                cornerRadius = 12.dp,
+                glassColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                borderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                shadowElevation = 4.dp
+            )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
                 modifier = Modifier.weight(1f)
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { onCountChange(currentCount - 1) }) {
                     Text(
                         text = "-",
-                        style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
+                        style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Normal),
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
                 Text(
                     text = currentCount.toString(),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 12.dp)
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
                 IconButton(onClick = { onCountChange(currentCount + 1) }) {
                     Icon(
                         imageVector = Icons.Filled.Add,
                         contentDescription = "Increase count",
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
                     )
                 }
             }
@@ -144,40 +223,38 @@ fun NumericUpDownDisplay(
     }
 }
 
-
 @Composable
 fun NumericPointsScreen(
     modifier: Modifier = Modifier,
-    settingsDataStore: SettingsDataStore // SettingsDataStore from the same package
+    settingsDataStore: SettingsDataStore
 ) {
     val listItemsData = remember {
         listOf(
             NumericListItemData(1, "Pages Read:", 10),
-            NumericListItemData(2, "Videos/Lectures (per minute):", 5),
-            NumericListItemData(3, "Passing Theory Checkout (per page):", 3),
-            NumericListItemData(4, "Giving Theory Checkout (per page):", 3),
-            NumericListItemData(5, "Finding MUs (per word):", 5),
-            NumericListItemData(6, "Reviewed Anki Cards (per card):", 1),
-            NumericListItemData(7, "New Anki Cards (per card):", 2),
-            NumericListItemData(8, "Briefs/Phrases Added (per item):", 3),
-            NumericListItemData(9, "Steno Practice (per minute):", 2),
-            NumericListItemData(10, "Transcription Practice (per minute audio):", 8),
-            NumericListItemData(11, "Shadowing Practice (per minute):", 4),
-            NumericListItemData(12, "Dictionary Work (per entry):", 2),
-            NumericListItemData(13, "Speed Building Drills (per drill):", 15),
-            NumericListItemData(14, "Accuracy Practice (per page):", 7),
-            NumericListItemData(15, "Theory Review Session (per hour):", 20),
-            NumericListItemData(16, "Attend Study Group (per hour):", 15),
-            NumericListItemData(17, "Present Topic in Study Group:", 25),
-            NumericListItemData(18, "Completed Assignment:", 30),
-            NumericListItemData(19, "Research Topic (per hour):", 12),
-            NumericListItemData(20, "CAT Software Practice (per hour):", 10),
-            NumericListItemData(21, "Professional Development (per hour):", 18)
+            NumericListItemData(2, "Videos/Live or Recorded Lectures/Teacher Instruction:", 5),
+            NumericListItemData(3, "Passing a Theory Checkout:", 3),
+            NumericListItemData(4, "Giving a Theory Checkout:", 3),
+            NumericListItemData(5, "Finding MUs:", 5),
+            NumericListItemData(6, "Giving a Checkout on a Demo:", 3),
+            NumericListItemData(7, "Each Definition, Derivation, Idiom, or Synonym:", 3),
+            NumericListItemData(8, "Giving/Receiving Word Clearing:", 150),
+            NumericListItemData(9, "Theory Coaching - Student and Coach:", 5),
+            NumericListItemData(10, "Any drill that takes 15 minutes or less:", 40),
+            NumericListItemData(11, "Verbatim Learning:", 10),
+            NumericListItemData(12, "Any practical over 15 mins:", 150),
+            NumericListItemData(13, "Finishing a practical between 15 mins and an hour:", 100),
+            NumericListItemData(14, "Finishing a practical over an hour:", 500),
+            NumericListItemData(15, "Checksheet Requirement Demo:", 5),
+            NumericListItemData(16, "Self-Originated Demo:", 3),
+            NumericListItemData(17, "Clay Demo:", 50),
+            NumericListItemData(18, "Essays, Charts, Diagrams:", 10),
+            NumericListItemData(19, "Course Completion:", 2000),
+            NumericListItemData(20, "Course Completion Bonus (For each day ahead of target):", 2000),
+            NumericListItemData(21, "Points for each day you are overdue on a course:", -200)
         )
     }
 
     var itemCounts by remember { mutableStateOf(List(listItemsData.size) { 0 }) }
-    // val coroutineScope = rememberCoroutineScope() // Not explicitly used here now for saving
 
     LaunchedEffect(Unit) {
         val loadedCounts = settingsDataStore.loadInitialItemCounts(listItemsData.size)
@@ -207,7 +284,7 @@ fun NumericPointsScreen(
     Column(modifier = modifier) {
         LazyColumn(
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp, start = 4.dp, end = 4.dp)
         ) {
             itemsIndexed(listItemsData, key = { _, item -> item.id }) { index, currentItemData ->
                 NumericUpDownDisplay(
@@ -225,17 +302,45 @@ fun NumericPointsScreen(
             }
         }
 
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shadowElevation = 4.dp
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .glassmorphism( // Calls the version in this file
+                    cornerRadius = 12.dp,
+                    glassColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    borderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                    shadowElevation = 4.dp
+                )
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            Button(
+                onClick = {
+                    itemCounts = List(listItemsData.size) { 0 }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 2.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = "Reset Counts",
+                    modifier = Modifier.size(ButtonDefaults.IconSize)
+                )
+                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                Text("Reset", style = MaterialTheme.typography.labelLarge)
+            }
+
             Text(
-                text = "Total Points: $totalSum",
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth(),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                text = "Total: $totalSum",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                textAlign = TextAlign.End
             )
         }
     }
